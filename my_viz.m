@@ -1,19 +1,9 @@
 classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
-    % VISUALIZER2D 2D Robot Visualizer
-    %
-    % Displays the pose (position and orientation) of an object in a 2D
-    % environment. Additionally has the option to display a map as a 
-    % robotics.OccupancyGrid or robotics.BinaryOccupancyGrid, object
-    % trajectory, waypoints, lidar scans, and/or objects.
-    %
-    % For more information, see <a href="matlab:edit mrsDocVisualizer2D">the documentation page</a>
-    %
-    % Copyright 2018-2019 The MathWorks, Inc.
-
     %% PROPERTIES
     % Public (user-visible) properties
     properties(Nontunable)
         robotRadius = 0;    % Robot radius [m]
+        obstacleRadius = 1.5;
         mapName = '';       % Map
     end     
     properties(Nontunable, Logical)
@@ -45,6 +35,8 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         ax;                 % Axes for plotting
         ax_z;               % zoomed figure axis
         RobotHandle;        % Handle to robot body marker or circle
+        ObstacleHandle;     % Handle to obstacle body marker or circle
+        ObstacleHandle_z;
         OrientationHandle;  % Handle to robot orientation line
         RobotHandle_z;        % Handle to robot body marker or circle
         OrientationHandle_z;  % Handle to robot orientation line
@@ -54,6 +46,7 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         trajX = [];         % X Trajectory points
         trajY = [];         % Y Trajectory points
         WaypointHandle;     % Handle to waypoints
+        WaypointHandle_obs;     % Handle to waypoints for obstacles
         ObjectHandles;      % Handle to objects
         ObjDetectorHandles; % Handle array to object detector lines
         WaypointHandle_z;     % Handle to waypoints
@@ -118,6 +111,10 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                 obj.RobotHandle_z = plot(obj.ax_z,0,0,'bo', ...
                     'LineWidth',1.5,'MarkerFaceColor',[1 1 1]);
             end
+             % Finite size robot
+                [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
+                obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
+                obj.ObstacleHandle_z = plot(obj.ax_z,x_obs,y_obs,'b','LineWidth',1.5);
             
             % Initialize trajectory
             if obj.showTrajectory
@@ -212,6 +209,8 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                 set(obj.WaypointHandle,'xdata',waypoints(:,1), ...
                                        'ydata',waypoints(:,2));
                 set(obj.WaypointHandle_z,'xdata',waypoints(:,1), ...
+                                       'ydata',waypoints(:,2));
+                set(obj.WaypointHandle_obs,'xdata',waypoints(:,1), ...
                                        'ydata',waypoints(:,2));
             end
 

@@ -1,10 +1,6 @@
-%% EXAMPLE: Differential Drive Path Following
-% In this example, a differential drive robot navigates a set of waypoints 
-% using the Pure Pursuit algorithm while avoiding obstacles using the
-% Vector Field Histogram (VFH) algorithm.
-% 
-% Copyright 2019 The MathWorks, Inc.
-
+clc
+close all
+clear all
 %% Simulation setup
 % Define Vehicle
 R = 0.1;                        % Wheel radius [m]
@@ -47,13 +43,69 @@ viz1.hasWaypoints = true;
 viz1.mapName = 'map';
 attachLidarSensor(viz1,lidar);
 
+%% Dijkstra
+grid_resolution = 15;
+nnode = grid_resolution*grid_resolution;
+nodelocation=zeros(nnode,2) + 1;
+n_x = 1;
+n_y = 1;
+x_grid = linspace(0.1,59.9,grid_resolution);
+y_grid = linspace(0.1,59.9,grid_resolution);
+n = 0;
+while (n_x<=grid_resolution)
+    while (n_y<=grid_resolution)
+        n=n+1;
+        rx = x_grid(n_x);
+        ry = y_grid(n_y);
+        if ~checkOccupancy(map,[rx ry]) %give inputs to inpolygon()
+            nodelocation(n, :) = [rx ry];        
+            % add this location to nodelocation list
+        end
+        n_y = n_y+1;
+    end
+    n_y = 1;
+    n_x=n_x+1;
+end
+[undirectedGraph,unedges]=generate_undirected_graph(map,nodelocation);
+
+% define start and end point of simulation
+startp=[5, 5];
+endp=[40, 40];
+
+[extungraph,exnodelocation,exunedges ]=addstartendpoint2ungraph(map,undirectedGraph,nodelocation,unedges,startp,endp);
+exundnodIndex=[1:nnode+2];
+snodeund=nnode+1;
+enodeund=nnode+2;
+
+[Route , Cost] = dijkstra(extungraph,exnodelocation,snodeund);
+rt=Route{enodeund};
+
+dijkstra_route=exnodelocation(rt,:);
+cost=pathcost(dijkstra_route);
+drawRoute('dijkstra on undirected map',snodeund,enodeund,exnodelocation,exundnodIndex,exunedges,rt,cost,map);
+
+wp = [];
+% extract the waypoints
+for i=1:length(rt)-1
+    x1=exnodelocation(exundnodIndex(rt(i)),1);
+    y1=exnodelocation(exundnodIndex(rt(i)),2);
+    wp = [wp ; x1 y1];
+end
+x1=exnodelocation(enodeund,1);
+y1=exnodelocation(enodeund,2);
+wp = [wp ; x1 y1];
+
 %% Path planning and following
 
-% Create waypoints
-waypoints = [initPose(1:2)'; 
-             55 10;
-             35 30;
-             40 50];
+%Create waypoints
+% waypoints = [initPose(1:2)'; 
+%              55 10;
+%              35 30;
+%              40 50];
+
+waypoints = [wp];
+
+
 
 % Pure Pursuit Controller
 controller = controllerPurePursuit;

@@ -1,10 +1,3 @@
-%% EXAMPLE: Differential Drive Path Following
-% In this example, a differential drive robot navigates a set of waypoints 
-% using the Pure Pursuit algorithm while avoiding obstacles using the
-% Vector Field Histogram (VFH) algorithm.
-% 
-% Copyright 2019 The MathWorks, Inc.
-
 %% Simulation setup
 % Define Vehicle
 R = 0.1;                        % Wheel radius [m]
