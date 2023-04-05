@@ -20,7 +20,7 @@ r = rateControl(5);
 
 for idx = 2:numel(tVec) 
     curPose = pose(:,idx-1);
-    [xp,yp,theta] = viz1(curPose,[0.7, 0.7], 2); 
+    [xp,yp,theta] = viz1(curPose,[0.5, 0.8],1); 
     pose(:,idx) = [xp(2);yp(2);theta];
     waitfor(r);
 end
