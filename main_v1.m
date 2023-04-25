@@ -30,17 +30,18 @@ lidar = LidarSensor;
 lidar.sensorOffset = [0,0];
 lidar.scanAngles = linspace(-pi/2,pi/2,51);
 lidar.maxRange = 5;
-
-% Create visualizer
-viz = Visualizer2D;
-viz.hasWaypoints = true;
-viz.mapName = 'map';
-attachLidarSensor(viz,lidar);
+% 
+% % Create visualizer
+% viz = Visualizer2D;
+% viz.hasWaypoints = true;
+% viz.mapName = 'map';
+% attachLidarSensor(viz,lidar);
 
 % Create visualizer
 viz1 = my_viz;
 viz1.hasWaypoints = true;
 viz1.mapName = 'map';
+viz1.obstacle_detected = false;
 attachLidarSensor(viz1,lidar);
 
 %% Dijkstra
@@ -98,17 +99,16 @@ wp = [wp ; x1 y1];
 %% Path planning and following
 
 %Create waypoints
-% waypoints = [initPose(1:2)'; 
-%              55 10;
-%              35 30;
-%              40 50];
+
 
 waypoints = [wp];
 
 
 
+
 % Pure Pursuit Controller
-controller = controllerPurePursuit;
+%controller = controllerPurePursuit;
+controller = my_controllerPurePursuit_1;
 controller.Waypoints = waypoints;
 controller.LookaheadDistance = 0.5;
 controller.DesiredLinearVelocity = 0.75;
@@ -140,7 +140,7 @@ for idx = 2:numel(tVec)
     end
     
     % Control the robot
-    velB = [vRef;0;wRef];                   % Body velocities [vx;vy;w]
+    velB = [vRef;0;wRef];             % Body velocities [vx;vy;w]
     vel = bodyToWorld(velB,curPose);  % Convert from body to world
     
     % Perform forward discrete integration step
@@ -149,6 +149,10 @@ for idx = 2:numel(tVec)
     % Update visualization
     %viz(pose(:,idx),waypoints,ranges)
     %waitfor(r);
-    viz1(pose(:,idx),waypoints,ranges)
+    new_wp = viz1(pose(:,idx),waypoints,ranges);
+    if(~isempty(new_wp))
+        controller.Waypoints = new_wp;
+    end
     waitfor(r);
+
 end

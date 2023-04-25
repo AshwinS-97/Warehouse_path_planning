@@ -3,8 +3,17 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
     % Public (user-visible) properties
     properties(Nontunable)
         robotRadius = 0;    % Robot radius [m]
-        obstacleRadius = 1.5;
+        obstacleRadius = 2.5;
         mapName = '';       % Map
+        Obstacle_vel = [0.5 -0.7];     % Set obstacle velocity direction
+        Obstacle_start = [40, 40];    % set the obstacle starting position
+        Obstacle_speed = 0.03;             % Set the obstacle speed
+        % defining the dynamics of the robot
+        max_linear_spd = 3;             % set the maximum linear speed
+        max_angular_spd = pi/4;         % set the maximum angular speed
+        max_linear_acc = 1;             % set the maximum linear acceleration
+        max_angular_acc = (pi/4);       % set the maximum angular acceleration
+        waypoint = [170,100];           % set the waypoint for the robot to reach
     end     
     properties(Nontunable, Logical)
         showTrajectory = true;      % Show trajectory
@@ -17,6 +26,7 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
     end
     properties(Nontunable, Logical)
         hasObjDetector = false;     % Accept object detections
+        obstacle_detected = false;
     end
     properties(Nontunable)
        objDetectorOffset = [0 0];   % Object detector offset (x,y) [m] 
@@ -52,6 +62,16 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         WaypointHandle_z;     % Handle to waypoints
         ObjectHandles_z;      % Handle to objects
         ObjDetectorHandles_z; % Handle array to object detector lines
+        normalHandle;       % Normal inside obstacle to be able to draw tangent
+        VO_Handle;          % To plot the velocity cone
+        robot_velHandle;    % To plot the velocity of the robot
+        timestep = 0;       % To store the current timestep
+        RV_Handle;          % Handle for plotting the reachable velocities
+        waypoints;          % Handle to plot the waypoint
+        Look_aheadHandle;   % Handle to plot the dotted line towards the waypoint
+        Handle_plot_RV;     % Handle to plot the reachable RV
+        handle_test_line_plot;
+        
     end
 
     %% METHODS
@@ -112,9 +132,9 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                     'LineWidth',1.5,'MarkerFaceColor',[1 1 1]);
             end
              % Finite size robot
-                [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
-                obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
-                obj.ObstacleHandle_z = plot(obj.ax_z,x_obs,y_obs,'b','LineWidth',1.5);
+%                 [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
+%                 obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
+%                 obj.ObstacleHandle_z = plot(obj.ax_z,x_obs,y_obs,'b','LineWidth',1.5);
             
             % Initialize trajectory
             if obj.showTrajectory
@@ -159,6 +179,22 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                 obj.ObjDetectorHandles_z(1) = plot(obj.ax_z,0,0,objDetectorFormat); % Left line
                 obj.ObjDetectorHandles_z(2) = plot(obj.ax_z,0,0,objDetectorFormat); % Right line
             end
+
+            % new code
+            % Initialize Obstacle plot
+        [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
+        obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
+
+        %Initialize all the other handles for plotting
+        obj.normalHandle = plot(obj.ax,0,0,'b','LineWidth',1.5);
+        obj.VO_Handle = plot(obj.ax,0,0,'b','LineWidth',1.5);
+        obj.robot_velHandle = plot(obj.ax,0,0,'r','LineWidth',1.5);
+        obj.RV_Handle = plot(obj.ax,0,0,'r','LineWidth',1.5);
+        obj.waypoints = plot(obj.ax,obj.waypoint(1),obj.waypoint(2),'rx','LineWidth',1.5);
+        obj.Look_aheadHandle = plot(obj.ax,0,0,'k','LineWidth',1.5,'LineStyle','--');
+        obj.waypoints = plot(obj.ax,0,0,'b.','LineWidth',1.5);
+        obj.handle_test_line_plot = plot(obj.ax,0,0,'r.','LineWidth',1.5);
+            % new code
             
             % Final setup
             title(obj.ax,'Robot Visualization');
@@ -171,7 +207,8 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         end
 
         % Step method: Updates visualization based on inputs
-        function stepImpl(obj,pose,varargin)          
+        function new_wp = stepImpl(obj,pose, varargin) 
+            new_wp = [];
             % Unpack the pose input into (x, y, theta)
             x = pose(1);
             y = pose(2);
@@ -239,6 +276,48 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                 set(obj.OrientationHandle_z,'xdata',xp,'ydata',yp);
             end
             
+            % New Code
+            if(obj.timestep>500)
+                x_obs = obj.Obstacle_start(1) + (obj.timestep - 500)*obj.Obstacle_vel(1)*obj.Obstacle_speed;
+                y_obs = obj.Obstacle_start(2) + (obj.timestep - 500)*obj.Obstacle_vel(2)*obj.Obstacle_speed;
+                [xc,yc] = internal.circlePoints(x_obs,y_obs,obj.obstacleRadius,17);
+                set(obj.ObstacleHandle,'xdata',xc,'ydata',yc);
+                if (sqrt(( x-x_obs)^2 +(y-y_obs)^2 ) < 20)
+                    [xdata, ydata] = plot_VC(xc,yc,[x y], [x_obs, y_obs]);
+                    %set(obj.normalHandle,'xdata',xdata,'ydata',ydata);
+                    xdata = [xdata; x; xdata];
+                    ydata = [ydata; y; ydata];
+                    xdata = xdata + obj.Obstacle_vel(1)*obj.Obstacle_speed;
+                    ydata = ydata + obj.Obstacle_vel(2)*obj.Obstacle_speed;
+                    %theta = atan(dir(2)/dir(1));
+                    set(obj.VO_Handle,'xdata',xdata,'ydata',ydata);
+                    speed = 3; % not defined
+                    [xdata_RV, ydata_RV] = RV(obj.max_linear_spd,obj.max_angular_spd,obj.max_linear_acc,obj.max_angular_acc,speed,theta,[x,y]);
+                    [Samplex ,Sampley] = Sample_inside_polygon([x,y],10,xdata_RV+x, ydata_RV+y,xdata,ydata);
+                    set(obj.handle_test_line_plot,'xdata',Samplex,'ydata',Sampley); 
+                    [dir, spd, RVpointx, RVpointy,indx] = set_vel([40,40],[x,y],speed,xdata,ydata,xdata_RV, ydata_RV,Samplex ,Sampley,[x_obs,y_obs]);
+                    set(obj.Handle_plot_RV,'xdata',RVpointx,'ydata',RVpointy);
+                    if(indx~=0)
+                        new_wp = [x,y;
+                                  Samplex(indx), Sampley(indx);
+                                  40,40];
+                    end
+                else
+                    set(obj.VO_Handle,'xdata',[0,0],'ydata',[0,0]);
+                    set(obj.handle_test_line_plot,'xdata',[0,0],'ydata',[0,0]);
+                    set(obj.Handle_plot_RV,'xdata',[0,0],'ydata',[0,0]);
+                end
+            end
+            
+
+
+            obj.timestep = obj.timestep+1;
+            %obj.timestep
+            % New Code
+
+
+
+
             % Update lidar lines
             if obj.hasLidar
                 
