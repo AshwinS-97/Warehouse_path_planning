@@ -24,12 +24,12 @@ function [dir, spd, RVpointx, RVpointy, index_vel] = set_vel(waypoint, rob_pos, 
         v_2 = [Samplex(i),Sampley(i),0] - [rob_pos(1),rob_pos(2),0];
         if(Theta > atan2(norm(cross(v_1, v_2)), dot(v_1, v_2)))
             Theta = atan2(norm(cross(v_1, v_2)), dot(v_1, v_2));
-            %index_vel = i;
+            index_vel = i;
         end
 
         if (temp_vel < Samplex(i)^2 + Sampley(i)^2)
             temp_vel = Samplex(i)^2 + Sampley(i)^2;
-            index_vel = i;
+            %index_vel = i;
         end      
     end
     dir = [Samplex(index_vel)-rob_pos(1), Sampley(index_vel) - rob_pos(2)]/2;

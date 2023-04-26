@@ -2,75 +2,87 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
     %% PROPERTIES
     % Public (user-visible) properties
     properties(Nontunable)
-        robotRadius = 0;    % Robot radius [m]
+        robotRadius = 0;                     % Robot radius [m]
         obstacleRadius = 2.5;
-        mapName = '';       % Map
-        Obstacle_vel = [0.5 -0.7];     % Set obstacle velocity direction
-        Obstacle_start = [40, 40];    % set the obstacle starting position
-        Obstacle_speed = 0.03;             % Set the obstacle speed
+        mapName = '';                        % Map
+        Obstacle_vel = [0.5 -0.7];           % Set obstacle velocity direction
+        Obstacle_start = [40, 40];           % set the obstacle starting position
+        Obstacle_speed = 0.03;               % Set the obstacle speed
+                                                    
+        
+        
         % defining the dynamics of the robot
-        max_linear_spd = 3;             % set the maximum linear speed
-        max_angular_spd = pi/4;         % set the maximum angular speed
-        max_linear_acc = 1;             % set the maximum linear acceleration
-        max_angular_acc = (pi/4);       % set the maximum angular acceleration
-        waypoint = [170,100];           % set the waypoint for the robot to reach
-    end     
+        max_linear_spd = 3;                  % set the maximum linear speed
+        max_angular_spd = pi/4;              % set the maximum angular speed
+        max_linear_acc = 1;                  % set the maximum linear acceleration
+        max_angular_acc = (pi/4);            % set the maximum angular acceleration
+        waypoint = [40,40];                  % set the waypoint for the robot to reach
+        r;                                   % Setup the rate of the simulation 
+    end  
+
     properties(Nontunable, Logical)
-        showTrajectory = true;      % Show trajectory
-        hasWaypoints = false;       % Accept waypoints
-        hasLidar = false;           % Accept lidar inputs
+        showTrajectory = true;              % Show trajectory
+        hasWaypoints = false;               % Accept waypoints
+        hasLidar = false;                   % Accept lidar inputs
     end
+
     properties
-       sensorOffset = [0 0];        % Lidar sensor offset (x,y) [m] 
-       scanAngles = [-pi/4,0,pi/4]; % Scan angles [rad]
+       sensorOffset = [0 0];                 % Lidar sensor offset (x,y) [m] 
+       scanAngles = [-pi/4,0,pi/4];          % Scan angles [rad]
+        map;                                 % Occupancy grid
+        fig;                                 % Figure window
+        fig_z                                % Figure window zoomed
+        ax;                                  % Axes for plotting
+        ax_z;                                % zoomed figure axis
+        RobotHandle;                         % Handle to robot body marker or circle
+        ObstacleHandle;                      % Handle to obstacle body marker or circle
+        ObstacleHandle_z;
+        OrientationHandle;                   % Handle to robot orientation line
+        RobotHandle_z;                       % Handle to robot body marker or circle
+        OrientationHandle_z;                 % Handle to robot orientation line
+        LidarHandles;                        % Handle array to lidar lines
+        TrajHandle;                          % Handle to trajectory plot
+        TrajHandle_local;
+        TrajHandle_z;                        % Handle to trajectory plot
+        trajX = [];                          % X Trajectory points
+        trajY = [];                          % Y Trajectory points
+        trajX_local = [];                    % X Trajectory points for local
+        trajY_local = [];                    % Y Trajectory points for local 
+        WaypointHandle;                      % Handle to waypoints
+        WaypointHandle_obs;                  % Handle to waypoints for obstacles
+        ObjectHandles;                       % Handle to objects
+        ObjDetectorHandles;                  % Handle array to object detector lines
+        WaypointHandle_z;                    % Handle to waypoints
+        ObjectHandles_z;                     % Handle to objects
+        ObjDetectorHandles_z;                % Handle array to object detector lines
+        normalHandle;                        % Normal inside obstacle to be able to draw tangent
+        VO_Handle;                           % To plot the velocity cone
+        robot_velHandle;                     % To plot the velocity of the robot
+        timestep = 0;                        % To store the current timestep
+        RV_Handle;                           % Handle for plotting the reachable velocities
+        waypoints;                           % Handle to plot the waypoint
+        Look_aheadHandle;                    % Handle to plot the dotted line towards the waypoint
+        Handle_plot_RV;                      % Handle to plot the reachable RV
+        handle_test_line_plot;
+        threshold = 20;
     end
+
     properties(Nontunable, Logical)
         hasObjDetector = false;     % Accept object detections
         obstacle_detected = false;
     end
+
     properties(Nontunable)
-       objDetectorOffset = [0 0];   % Object detector offset (x,y) [m] 
-       objDetectorAngle = 0;        % Object detector angle [rad]
-       objDetectorFOV = pi/4;       % Object detector field of view [rad] 
-       objDetectorMaxRange = 5;     % Object detector maximum range [m]
-       objectColors = [1 0 0;0 1 0;0 0 1];  % Object label colors [RGB rows]
-       objectMarkers = 's';       % Object markers [character array]
+       objDetectorOffset = [0 0];            % Object detector offset (x,y) [m] 
+       objDetectorAngle = 0;                 % Object detector angle [rad]
+       objDetectorFOV = pi/4;                % Object detector field of view [rad] 
+       objDetectorMaxRange = 5;              % Object detector maximum range [m]
+       objectColors = [1 0 0;0 1 0;0 0 1];   % Object label colors [RGB rows]
+       objectMarkers = 's';                  % Object markers [character array]
     end
 
     % Private properties
-    properties(Access = private)
-        map;                % Occupancy grid
-        fig;                % Figure window
-        fig_z               % Figure window zoomed
-        ax;                 % Axes for plotting
-        ax_z;               % zoomed figure axis
-        RobotHandle;        % Handle to robot body marker or circle
-        ObstacleHandle;     % Handle to obstacle body marker or circle
-        ObstacleHandle_z;
-        OrientationHandle;  % Handle to robot orientation line
-        RobotHandle_z;        % Handle to robot body marker or circle
-        OrientationHandle_z;  % Handle to robot orientation line
-        LidarHandles;       % Handle array to lidar lines
-        TrajHandle;         % Handle to trajectory plot
-        TrajHandle_z;         % Handle to trajectory plot
-        trajX = [];         % X Trajectory points
-        trajY = [];         % Y Trajectory points
-        WaypointHandle;     % Handle to waypoints
-        WaypointHandle_obs;     % Handle to waypoints for obstacles
-        ObjectHandles;      % Handle to objects
-        ObjDetectorHandles; % Handle array to object detector lines
-        WaypointHandle_z;     % Handle to waypoints
-        ObjectHandles_z;      % Handle to objects
-        ObjDetectorHandles_z; % Handle array to object detector lines
-        normalHandle;       % Normal inside obstacle to be able to draw tangent
-        VO_Handle;          % To plot the velocity cone
-        robot_velHandle;    % To plot the velocity of the robot
-        timestep = 0;       % To store the current timestep
-        RV_Handle;          % Handle for plotting the reachable velocities
-        waypoints;          % Handle to plot the waypoint
-        Look_aheadHandle;   % Handle to plot the dotted line towards the waypoint
-        Handle_plot_RV;     % Handle to plot the reachable RV
-        handle_test_line_plot;
+    properties(Access = private)      
         
     end
 
@@ -79,10 +91,10 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         
         % Setup method: Initializes all necessary graphics objects
         function setupImpl(obj)
+
             % Create figure
             FigureName = 'Robot Visualization';
             FigureTag = 'RobotVisualization';
-
             FigureName_z = 'Robot Visualization_z';
             FigureTag_z = 'RobotVisualization_z';
 
@@ -105,7 +117,7 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
 
             obj.ax = axes('parent',obj.fig);   
             obj.ax_z = axes('parent',obj.fig_z);
-            %box on % put box around new pair of axes 
+            
             hold(obj.ax,'on');
             hold(obj.ax_z,'on');
              
@@ -131,14 +143,11 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
                 obj.RobotHandle_z = plot(obj.ax_z,0,0,'bo', ...
                     'LineWidth',1.5,'MarkerFaceColor',[1 1 1]);
             end
-             % Finite size robot
-%                 [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
-%                 obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
-%                 obj.ObstacleHandle_z = plot(obj.ax_z,x_obs,y_obs,'b','LineWidth',1.5);
-            
+                        
             % Initialize trajectory
             if obj.showTrajectory
                 obj.TrajHandle = plot(obj.ax,0,0,'b.-');
+                obj.TrajHandle_local = plot(obj.ax,0,0,'r.-');
                 obj.TrajHandle_z = plot(obj.ax_z,0,0,'b.-');
             end
             
@@ -182,18 +191,18 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
 
             % new code
             % Initialize Obstacle plot
-        [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
-        obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
-
-        %Initialize all the other handles for plotting
-        obj.normalHandle = plot(obj.ax,0,0,'b','LineWidth',1.5);
-        obj.VO_Handle = plot(obj.ax,0,0,'b','LineWidth',1.5);
-        obj.robot_velHandle = plot(obj.ax,0,0,'r','LineWidth',1.5);
-        obj.RV_Handle = plot(obj.ax,0,0,'r','LineWidth',1.5);
-        obj.waypoints = plot(obj.ax,obj.waypoint(1),obj.waypoint(2),'rx','LineWidth',1.5);
-        obj.Look_aheadHandle = plot(obj.ax,0,0,'k','LineWidth',1.5,'LineStyle','--');
-        obj.waypoints = plot(obj.ax,0,0,'b.','LineWidth',1.5);
-        obj.handle_test_line_plot = plot(obj.ax,0,0,'r.','LineWidth',1.5);
+            [x_obs,y_obs] = internal.circlePoints(0,0,obj.obstacleRadius,17);
+            obj.ObstacleHandle = plot(obj.ax,x_obs,y_obs,'b','LineWidth',1.5);
+    
+            %Initialize all the other handles for plotting
+            obj.normalHandle = plot(obj.ax,0,0,'b','LineWidth',1.5);
+            obj.VO_Handle = plot(obj.ax_z,0,0,'b','LineWidth',1.5);
+            obj.robot_velHandle = plot(obj.ax,0,0,'r','LineWidth',1.5);
+            obj.RV_Handle = plot(obj.ax,0,0,'r','LineWidth',1.5);
+            obj.waypoints = plot(obj.ax,obj.waypoint(1),obj.waypoint(2),'rx','LineWidth',1.5);
+            obj.Look_aheadHandle = plot(obj.ax,0,0,'k','LineWidth',1.5,'LineStyle','--');
+            obj.waypoints = plot(obj.ax,0,0,'b.','LineWidth',1.5);
+            obj.handle_test_line_plot = plot(obj.ax,0,0,'r.','LineWidth',1.5);
             % new code
             
             % Final setup
@@ -207,7 +216,9 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
         end
 
         % Step method: Updates visualization based on inputs
-        function new_wp = stepImpl(obj,pose, varargin) 
+        function [new_wp, steps, pose12] = stepImpl(obj,pose, varargin) 
+            pose12 = [];
+            steps = -1;
             new_wp = [];
             % Unpack the pose input into (x, y, theta)
             x = pose(1);
@@ -277,45 +288,40 @@ classdef my_viz < matlab.System & matlab.system.mixin.CustomIcon
             end
             
             % New Code
-            if(obj.timestep>500)
-                x_obs = obj.Obstacle_start(1) + (obj.timestep - 500)*obj.Obstacle_vel(1)*obj.Obstacle_speed;
-                y_obs = obj.Obstacle_start(2) + (obj.timestep - 500)*obj.Obstacle_vel(2)*obj.Obstacle_speed;
+            if(obj.timestep>600)
+                obj.timestep
+                x_obs = obj.Obstacle_start(1) + (obj.timestep -600)*obj.Obstacle_vel(1)*obj.Obstacle_speed;
+                y_obs = obj.Obstacle_start(2) + (obj.timestep -600)*obj.Obstacle_vel(2)*obj.Obstacle_speed;
                 [xc,yc] = internal.circlePoints(x_obs,y_obs,obj.obstacleRadius,17);
                 set(obj.ObstacleHandle,'xdata',xc,'ydata',yc);
-                if (sqrt(( x-x_obs)^2 +(y-y_obs)^2 ) < 20)
-                    [xdata, ydata] = plot_VC(xc,yc,[x y], [x_obs, y_obs]);
-                    %set(obj.normalHandle,'xdata',xdata,'ydata',ydata);
-                    xdata = [xdata; x; xdata];
-                    ydata = [ydata; y; ydata];
-                    xdata = xdata + obj.Obstacle_vel(1)*obj.Obstacle_speed;
-                    ydata = ydata + obj.Obstacle_vel(2)*obj.Obstacle_speed;
-                    %theta = atan(dir(2)/dir(1));
-                    set(obj.VO_Handle,'xdata',xdata,'ydata',ydata);
-                    speed = 3; % not defined
-                    [xdata_RV, ydata_RV] = RV(obj.max_linear_spd,obj.max_angular_spd,obj.max_linear_acc,obj.max_angular_acc,speed,theta,[x,y]);
-                    [Samplex ,Sampley] = Sample_inside_polygon([x,y],10,xdata_RV+x, ydata_RV+y,xdata,ydata);
-                    set(obj.handle_test_line_plot,'xdata',Samplex,'ydata',Sampley); 
-                    [dir, spd, RVpointx, RVpointy,indx] = set_vel([40,40],[x,y],speed,xdata,ydata,xdata_RV, ydata_RV,Samplex ,Sampley,[x_obs,y_obs]);
-                    set(obj.Handle_plot_RV,'xdata',RVpointx,'ydata',RVpointy);
-                    if(indx~=0)
-                        new_wp = [x,y;
-                                  Samplex(indx), Sampley(indx);
-                                  40,40];
+                initPose = [x;y;0];            % Initial pose (x y theta)
+                pose = zeros(3,600);   % Pose matrix
+                pose(:,1) = initPose;
+                steps=steps+1;
+                
+                obs_pose1 = [x_obs, y_obs];
+                one_time_flag = 1;
+                while (sqrt(( x-x_obs)^2 +(y-y_obs)^2 ) < obj.threshold)
+                    if (one_time_flag == 1)
+                        obj.threshold = 25;
+                        one_time_flag = 0;
                     end
-                else
-                    set(obj.VO_Handle,'xdata',[0,0],'ydata',[0,0]);
-                    set(obj.handle_test_line_plot,'xdata',[0,0],'ydata',[0,0]);
-                    set(obj.Handle_plot_RV,'xdata',[0,0],'ydata',[0,0]);
+                    obj.threshold = obj.threshold - 0.03;
+                    steps=steps+1;                   
+                    curPose = pose(:,steps);
+                    [xp,yp,x_obs,y_obs,theta] = Local_planner(obj,curPose,[0.5,0.8], 0.02,obs_pose1);
+%                     x_obs =  obj.Obstacle_start(1) + (obj.timestep - 600)*obj.Obstacle_vel(1)*obj.Obstacle_speed;
+%                     y_obs =  obj.Obstacle_start(2) + (obj.timestep - 600)*obj.Obstacle_vel(2)*obj.Obstacle_speed;
+                    pose(:,steps+1) = [xp(2);yp(2);theta];
+                    x = xp(2);
+                    y = yp(2);
+                    pose12 = [xp(2);yp(2);theta];
+                    waitfor(obj.r);
+                    new_wp = [40, 40];
                 end
+                
             end
-            
-
-
             obj.timestep = obj.timestep+1;
-            %obj.timestep
-            % New Code
-
-
 
 
             % Update lidar lines

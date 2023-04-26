@@ -1,7 +1,7 @@
 function [RVx ,RVy] = plot_VC(m_lin_spd,m_ang_spd,m_lin_acc,m_ang_acc,spd,theta, rob_loc)
     Reachable_Ang = [];
     resolution = 10;
-    mlt_factor = 2; % Multiplication factor for easy visualization
+    mlt_factor = 0.1; % Multiplication factor for easy visualization
     for i=1:resolution
         Reachable_Ang = [Reachable_Ang, theta + i*(m_ang_acc/resolution)];
         Reachable_Ang = [Reachable_Ang, theta - i*(m_ang_acc/resolution)];

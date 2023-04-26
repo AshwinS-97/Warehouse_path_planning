@@ -2,6 +2,7 @@ clc
 close all
 clear all
 %% Simulation setup
+
 % Define Vehicle
 R = 0.1;                        % Wheel radius [m]
 L = 0.5;                        % Wheelbase [m]
@@ -18,10 +19,11 @@ pose(:,1) = initPose;
 
 % Load map
 close all
-%load exampleMap
+%load Map
 load multiRobotWarehouseMap.mat logicalMap loadingStation unloadingStations chargingStations
 warehouseFig = figure('Name', 'Warehouse Setting', 'Units',"normalized", 'OuterPosition',[0 0 1 1]);
 visualizeWarehouse(warehouseFig, logicalMap, chargingStations, unloadingStations, loadingStation);
+
 % binaryOccupancyMap
 map = binaryOccupancyMap(logicalMap);
 
@@ -30,12 +32,6 @@ lidar = LidarSensor;
 lidar.sensorOffset = [0,0];
 lidar.scanAngles = linspace(-pi/2,pi/2,51);
 lidar.maxRange = 5;
-% 
-% % Create visualizer
-% viz = Visualizer2D;
-% viz.hasWaypoints = true;
-% viz.mapName = 'map';
-% attachLidarSensor(viz,lidar);
 
 % Create visualizer
 viz1 = my_viz;
@@ -99,8 +95,6 @@ wp = [wp ; x1 y1];
 %% Path planning and following
 
 %Create waypoints
-
-
 waypoints = [wp];
 
 
@@ -125,8 +119,11 @@ vfh.MinTurningRadius = 0.25;
 
 %% Simulation loop
 r = rateControl(10/sampleTime);
-for idx = 2:numel(tVec) 
-    
+viz1.r = r;
+%for idx = 2:numel(tVec) 
+idx = 2;
+while idx < numel(tVec)
+        
     % Get the sensor readings
     curPose = pose(:,idx-1);
     ranges = lidar(curPose);
@@ -149,10 +146,13 @@ for idx = 2:numel(tVec)
     % Update visualization
     %viz(pose(:,idx),waypoints,ranges)
     %waitfor(r);
-    new_wp = viz1(pose(:,idx),waypoints,ranges);
-    if(~isempty(new_wp))
+    [new_wp, steps, pose12] = viz1(pose(:,idx),waypoints,ranges);
+    if(~isempty(pose12))
         controller.Waypoints = new_wp;
+        idx = idx + steps;
+        pose(:,idx) = pose12;
     end
     waitfor(r);
+    idx = idx+1;
 
 end
